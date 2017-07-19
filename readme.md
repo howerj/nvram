@@ -14,7 +14,7 @@ section and write this to disk using [atexit][].
 
 This code works with either [GCC][] or [Clang][].
 
-## Perquisites 
+## Prerequisites 
 
 * Either [GCC][] or [Clang][] must be installed and on the PATH.
 * As must [GNU Make][]
@@ -33,6 +33,7 @@ source code are used.
 The variables get written back to disk on program exit, the demonstration
 program does nothing fancy, it is simply there to illustrate the technique.
 
+This program has to be run multiple times to see any affect.
 
 [nvram.c]: nvram.c
 [linker]: https://en.wikipedia.org/wiki/Linker_(computing)

@@ -118,6 +118,7 @@ extern char __stop_nvram;                       /**< end   of section 'nvram' */
        NVRAM uint16_t nv_endianess = 0x1234u;   /**< if the endianess of a save block differs this will be 0x3412 */
 static NVRAM int32_t  nv_a = 0;                 /**< example NVRAM variable 'a' */
 static NVRAM int32_t  nv_b = 0;                 /**< example NVRAM variable 'b' */
+static NVRAM int32_t  nv_c = 0;                 /**< example NVRAM variable 'c' */
 static NVRAM uint32_t nv_count = 0;             /**< this variable is incremented each time the program is run */
 
 /* ======= NVRAM Variables ================================================= */
@@ -174,7 +175,7 @@ static int nvram_initialize(void)
 		r = -1;
 	}
 	if (block(&__start_nvram, &__stop_nvram - &__start_nvram, nvram_name, true)) {
-		fputs("nvram block load failed: default values will be used\n", stderr);
+		fputs("nvram block load failed: data will be inconsistent!\n", stderr);
 		r = -1;
 	}
 	return r;
@@ -192,6 +193,7 @@ int main(void)
 	/* default values can be accessed before nvram_initialize is called */
 	printf("default a:   %d\n", (int)nv_a);
 	printf("default b:   %d\n", (int)nv_b);
+	printf("default c:   %d\n", (int)nv_c);
 
 	/* loads in variables off disk and registers nvram_initialize */
 	nvram_initialize();
@@ -199,11 +201,15 @@ int main(void)
 	printf("count:       %u\n", (unsigned)(nv_count++));
 	printf("loaded a:    %d\n", (int)nv_a);
 	printf("loaded b:    %d\n", (int)nv_b);
+	printf("loaded c:    %d\n", (int)nv_c);
 
+	/* accept some user input and do some calculations */
 	fputs("a new value: ", stdout);
 	scanf("%" SCNd32, &nv_a);
 	fputs("b new value: ", stdout);
 	scanf("%" SCNd32, &nv_b);
+	nv_c = nv_a + nv_b;
+	printf("c = a + b\nc = %d\n", (int)nv_c);
 
 	/* We do not have to worry about calling nvram_save, atexit will */
 
