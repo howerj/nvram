@@ -73,7 +73,10 @@
  * - The endianess of variables can differ between machines, however it can be
  *   checked for, correcting for it when it differs is a different matter
  *   however.
- * - The order in which variables are stored by the linker is not specified.
+ * - The order in which variables are stored by the linker is not specified,
+ *   although for GCC there is the option "-fno-toplevel-reorder", which will
+ *   place variables (as well as functions) in their section in the order in
+ *   which they appear. 
  * - If Non-Volatile variables are declared in multiple files then the order
  *   object files are passed to the linker could change the format of the file
  *   stored on disk.

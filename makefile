@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -std=gnu99 -O2
+CFLAGS=-Wall -Wextra -std=gnu99 -O2 -fno-toplevel-reorder
 TARGET=nvram
 
 all: ${TARGET}
