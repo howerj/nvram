@@ -112,21 +112,23 @@
 const  char *nvram_name = "nvram.blk";          /**< file to store NVRAM variables in */
 extern char __start_nvram;                      /**< start of section 'nvram' */
 extern char __stop_nvram;                       /**< end   of section 'nvram' */
-#define NVRAM __attribute__((section("nvram"))) /**< used to put a variable in 'NVRAM' */
+#define NVRAM volatile __attribute__((section("nvram"))) __attribute__ ((aligned (8))) /**< used to put a variable in 'NVRAM' */
 
 /* ======= NVRAM Setup ===================================================== */
 
 /* ======= NVRAM Variables ================================================= */
 
-       NVRAM uint16_t nv_endianess = 0x1234u;   /**< if the endianess of a save block differs this will be 0x3412 */
-static NVRAM int32_t  nv_a = 0;                 /**< example NVRAM variable 'a' */
-static NVRAM int32_t  nv_b = 0;                 /**< example NVRAM variable 'b' */
-static NVRAM int32_t  nv_c = 0;                 /**< example NVRAM variable 'c' */
-static NVRAM uint32_t nv_count = 0;             /**< this variable is incremented each time the program is run */
+       NVRAM uint64_t nv_format   = 0xFF4e5652414d00FFuLL; /**< file format _and_ endianess specifier */
+       NVRAM uint64_t nv_version  = 1u;        /**< data version number */
+static NVRAM int32_t  nv_a = 0;                /**< example NVRAM variable 'a' */
+static NVRAM int32_t  nv_b = 0;                /**< example NVRAM variable 'b' */
+static NVRAM int32_t  nv_c = 0;                /**< example NVRAM variable 'c' */
+static NVRAM uint64_t nv_count = 0;            /**< this variable is incremented each time the program is run */
 
 /* ======= NVRAM Variables ================================================= */
 
 /* ======= Utility Functions =============================================== */
+
 /**< Transfer a block of memory to (read = false) or from (read = true) disk  */
 static int block(char *buffer, size_t length, const char *name, bool read)
 {
@@ -169,17 +171,29 @@ static void nvram_save(void)
 	}
 }
 
-/**< register save call back atexit and load in NVRAM variables */
+/**< register save call back atexit and load in NVRAM variables
+ * @return 0< fatal error, 0 = okay, 1 = warning */
 static int nvram_initialize(void)
 {
 	int r = 0;
+	uint64_t format = nv_format;
+	uint64_t version = nv_version;
+
+	if (block(&__start_nvram, &__stop_nvram - &__start_nvram, nvram_name, true))
+		r = 1;
+
+	if (format != nv_format) {
+		fprintf(stderr, "file format/endianess incompatibility: expected %"PRIx64 " - actual %"PRIx64"\n", format, nv_version);
+		return -1;
+	}
+	if (version != nv_version) {
+		fprintf(stderr, "version incompatibility: expected %"PRIx64 " - actual %"PRIx64"\n", version, nv_version);
+		return -1;
+	}
+
 	if (atexit(nvram_save)) {
 		fputs("atexit: failed to register nvram_save\n", stderr);
-		r = -1;
-	}
-	if (block(&__start_nvram, &__stop_nvram - &__start_nvram, nvram_name, true)) {
-		fputs("nvram block load failed: data will be inconsistent!\n", stderr);
-		r = -1;
+		return -1;
 	}
 	return r;
 }
@@ -199,7 +213,8 @@ int main(void)
 	printf("default c:   %d\n", (int)nv_c);
 
 	/* loads in variables off disk and registers nvram_initialize */
-	nvram_initialize();
+	if(nvram_initialize() < 0)
+		return -1;
 
 	printf("count:       %u\n", (unsigned)(nv_count++));
 	printf("loaded a:    %d\n", (int)nv_a);
