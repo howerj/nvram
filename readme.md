@@ -35,9 +35,26 @@ program does nothing fancy, it is simply there to illustrate the technique.
 
 This program has to be run multiple times to see any affect.
 
+## Editing the data
+
+A hacked together editor using [doxygen][] and [perl][] has been added, it is
+another demonstration of a concept. The editor script, [editor.pl][], takes as
+its input two files, an [XML][] file produced by [doxygen][] which contains a 
+processed version of [nvram.c][]. The declarations are easily extractable from
+this [XML][] file (the [perl][] module [TreePP][] does the parsing), and
+variables with the correct declaration are searched for. This used to
+automatically construct an editor for the "nvram.blk" file. 
+
+The editor itself is very primitive.
+
 [nvram.c]: nvram.c
 [linker]: https://en.wikipedia.org/wiki/Linker_(computing)
 [atexit]: http://man7.org/linux/man-pages/man3/atexit.3.html
 [GCC]: https://gcc.gnu.org/
 [Clang]: https://clang.llvm.org/
 [GNU Make]: https://www.gnu.org/software/make/
+[doxygen]: http://www.stack.nl/~dimitri/doxygen/
+[perl]: https://www.perl.org/
+[editor.pl]: editor.pl
+[XML]: https://en.wikipedia.org/wiki/XML
+[TreePP]: http://search.cpan.org/~kawasaki/XML-TreePP-0.43/lib/XML/TreePP.pm

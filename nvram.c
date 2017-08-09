@@ -150,9 +150,9 @@ static int block(char *buffer, size_t length, const char *name, bool read)
 	r = read ? fread(buffer, 1, length, l) : fwrite(buffer, 1, length, l);
 	if (r != length) {
 		fprintf(stderr, "warning - partial block operation "
-				" (%zu/%zu bytes %s): %s\n", 
-				r, 
-				length, 
+				" (%u/%u bytes %s): %s\n", 
+				(unsigned)r, 
+				(unsigned)length, 
 				read ? "read" : "wrote", 
 				strerror(errno));
 		fclose(l);

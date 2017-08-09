@@ -1,3 +1,6 @@
 *.o
 *.blk
 nvram
+*.exe
+XML/*
+doxygen/*
