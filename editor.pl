@@ -235,7 +235,9 @@ COMMANDS
 			return;
 		}
 		chomp $value;
-		if(not ($value =~ m/[0-9a-fA-F]+/)) {
+		$value =~ s/[ \t]+//g;
+			
+		if(not ($value =~ m/^[0-9a-fA-F]+$/)) {
 			print "not a hexadecimal value: $value";
 			return;
 		}
@@ -251,6 +253,7 @@ COMMANDS
 	while(<>) {
 		chomp;
 		my $name = $_;
+		$name =~ s/[ \t]+//g;
 		my $var  = &find($vars, $name);
 		if(not defined $var) {
 			my $r = &command($vars, $name);
@@ -266,9 +269,9 @@ COMMANDS
 	print "\n";
 }
 
-sub gui_editor($)
+sub gui_editor($$$$$)
 {
-	my ($vars) = @_;
+	my ($vars, $file, $size, $endian, $alignment) = @_;
 
 	my $mw = new MainWindow;
 	$mw->title("Perl/Tk NVRAM block editor");
@@ -276,10 +279,6 @@ sub gui_editor($)
 	$mw->bind('<KeyRelease-Escape>' => sub{ exit });
 	my $form = $mw->Frame();
 	$form->pack();
-
-
-	my $save = $form->Button(-text => 'Save');
-	$save->pack(-fill => 'both');
 
 	my @labels;
 	my @entries;
@@ -292,13 +291,39 @@ sub gui_editor($)
 		push @labels, $label;
 	}
 
+	my $gui_save = sub {
+		my $i = 0;
+		foreach my $var(@{$vars}) {
+			my $entry = $entries[$i];
+			$entry->configure(-state => "readonly");
+			my $value = $entry->get();
+
+			if ((not defined $value) or (not ($value =~ m/^[0-9a-fA-F]+$/))) {
+				$entry->configure(-text => $var->{data});
+				$entry->configure(-state => "normal");
+				next;
+			}
+			$entry->configure(-state => "normal");
+			my $l = (2 * $alignment) - length $value;
+			$value = ("0" x $l) . $value;
+			$var->{data} = $value;
+			$i++;
+		}
+		&save($vars, $file, $size, $endian, $alignment);
+		# $form->messageBox(-icon => "info", -message => "Data Saved", -title => "Saved", -type => "Ok");
+	};
+
+	my $save_button = $form->Button(-text => 'Save', -command => $gui_save);
+	$save_button->pack(-fill => 'both');
+	$mw->bind('<KeyRelease-Return>' => $gui_save);
+
 	MainLoop;
 }
 
 my ($nv_vars, $size) = &xml($nv_xml);
 &load($nv_vars, $nv_data, $size, $endian, $alignment);
 if($gui) {
-	&gui_editor($nv_vars);
+	&gui_editor($nv_vars, $nv_data, $size, $endian, $alignment);
 } else {
 	&cli_editor($nv_vars);
 }
