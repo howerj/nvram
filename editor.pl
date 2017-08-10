@@ -21,8 +21,14 @@
 # 	- Getopts http://perldoc.perl.org/Getopt/Long.html
 # 	- Datadumper https://perldoc.perl.org/Data/Dumper.html
 # 
-# @todo Generate XML description of NVRAM file format, along with XSD
-# for validating the generated XML file.
+# @todo Make an XSD file to describe the generate XML file, and an XSLT file
+# for displaying it as a webpage
+# @todo The version number and format string should be checked, and the endianess
+# determined. Initializers should also be decoded correctly and input allowed in
+# decimal as well as hexadecimal? The format and the version fields should be protected
+# from being edited.
+# @todo The doxygen extraction of types needs to be improved to make it more
+# robust.
 #
 use warnings;
 use strict;
@@ -32,9 +38,11 @@ use XML::TreePP;
 use Tk;
 
 my $verbose   = 0;
+my $noedit    = 0;
 my $gui       = 0;
 my $nv_xml    = "doxygen/xml/nvram_8c.xml";
 my $nv_data   = "nvram.blk";
+my $xml_out   = "$nv_data.xml";
 my $alignment = 8; # @todo specify this in the nvram format
 my $endian    = 1; # this can be determined by looking at the first variable
 my $help      =<<HELP
@@ -53,12 +61,16 @@ located within a special section within the executable that allows this.
 	--data,     -d  the file which contains the data
 	--help,     -h  this help message
 	--gui,      -g  run GUI editor instead of command line editor
+	--output,   -o  specifiy output XML file, if desired
+	--no-edit,  -n  do not launch the editor
 	--verbose,  -v  turn on verbose mode
 
 For more information, view the example C program at:
-https://github.com/howerj/nvram/blob/master/nvram.c
+<https://github.com/howerj/nvram/blob/master/nvram.c> This script should 
+be in the same repository. 
 
-This script should be in the same repository.
+The Doxygen version used to create the XML file input was version "1.8.11",
+future and previous versions of doxygen may not work.
 
 HELP
 ;
@@ -70,20 +82,28 @@ GetOptions(
 	"endian|e=i"     => \$endian,
 	"data|d=s"       => \$nv_data,
 	"verbose|v"      => \$verbose,
+	"no-edit|n"      => \$noedit,
+	"output|o"       => \$xml_out,
 	"help|h"         => sub { print $help; exit; })
 	or die "command line options error: try --help or -h for information";
 
-print <<SETTINGS
-XML:       '$nv_xml'
-ALIGNMENT: $alignment
-ENDIAN:    $endian
-DATA:      '$nv_data'
-VEBOSITY:  $verbose
-GUI MODE:  $gui
+my $settings =<<SETTINGS
+XML:        '$nv_xml'
+ALIGNMENT:  $alignment
+ENDIAN:     $endian
+DATA:       '$nv_data'
+VEBOSITY:   $verbose
+GUI MODE:   $gui
+XML OUTPUT: '$xml_out'
+NO EDIT:    $noedit
 SETTINGS
 ;
 
-sub xml($)
+print $settings if $verbose;
+
+# @todo Use force_array/force_hash to make sure the data is how this function
+# expects it. The error checking of this function could be improved.
+sub unxml($)
 {
 	my ($file) = @_;
 	my $tpp = XML::TreePP->new();
@@ -134,7 +154,6 @@ sub xml($)
 	return (\@nv_vars, $location);
 }
 
-
 sub load($$$$$) {
 	my ($vars, $file, $size, $endian, $alignment) = @_;
 	my $data;
@@ -170,8 +189,26 @@ sub save($$$$$) {
 	close FH;
 }
 
-# @todo TK Version of this editor
-sub cli_editor($)
+sub xml($$)
+{
+	my ($vars, $file) = @_;
+	my %x;
+	my $i = 0;
+	foreach my $var(@{$vars}) {
+		$x{nvram}->{variable}->[$i++] = $var;
+	}
+
+	my $tpp = XML::TreePP->new();
+	$tpp->set(indent => 2);
+	my $out = $tpp->write(\%x);
+
+	open FH, ">", $file or die "could not open $file for writing: $!";
+	print FH $out;
+	close FH;
+	return undef;
+}
+
+sub cli($)
 {
 	sub command($$)
 	{
@@ -183,10 +220,11 @@ meant for serious use). Press CTRL-D to exit the edit loop.
 
 All commands are prefixed with '-'. A list of commands:
 
-	-list List all variables that can be edited
-	-help This help text
-	-end  Finish the edit loop (same as CTRL-D)
-	-quit Quit without saving
+	-list     List all variables that can be edited
+	-help     This help text
+	-end      Finish the edit loop (same as CTRL-D)
+	-quit     Quit without saving
+	-settings Print settings information
 
 COMMANDS
 ;
@@ -204,6 +242,8 @@ COMMANDS
 		} elsif($command eq "-quit") {
 			print "exiting without saving\n";
 			exit;
+		} elsif($command eq "-settings") {
+			print $settings;
 		} elsif($command =~ m/^[ \t]*$/) {
 			return 0;
 		} else {
@@ -222,8 +262,6 @@ COMMANDS
 
 		return undef;
 	}
-
-
 
 	sub edit($)
 	{
@@ -269,22 +307,23 @@ COMMANDS
 	print "\n";
 }
 
-sub gui_editor($$$$$)
+sub gui($$$$$)
 {
 	my ($vars, $file, $size, $endian, $alignment) = @_;
 
 	my $mw = new MainWindow;
 	$mw->title("Perl/Tk NVRAM block editor");
 	#$mw->geometry($mw->screenwidth . "x" . $mw->screenheight . "+0+0");
-	$mw->bind('<KeyRelease-Escape>' => sub{ exit });
 	my $form = $mw->Frame();
 	$form->pack();
 
 	my @labels;
 	my @entries;
 	foreach my $var(@{$vars}) {
+		my $data = $var->{data};
 		my $label = $form->Label(-text => $var->{name});
-		my $entry = $form->Entry(-text => $var->{data});
+		my $entry = $form->Entry();
+		$entry->configure(-state => "normal", -textvariable => \$data);
 		$label->pack(-fill => 'both');
 		$entry->pack(-fill => 'both');
 		push @entries, $entry;
@@ -295,15 +334,13 @@ sub gui_editor($$$$$)
 		my $i = 0;
 		foreach my $var(@{$vars}) {
 			my $entry = $entries[$i];
-			$entry->configure(-state => "readonly");
 			my $value = $entry->get();
 
 			if ((not defined $value) or (not ($value =~ m/^[0-9a-fA-F]+$/))) {
-				$entry->configure(-text => $var->{data});
-				$entry->configure(-state => "normal");
+				my $data = $var->{data};
+				$entry->configure(-textvariable => \$data);
 				next;
 			}
-			$entry->configure(-state => "normal");
 			my $l = (2 * $alignment) - length $value;
 			$value = ("0" x $l) . $value;
 			$var->{data} = $value;
@@ -316,18 +353,24 @@ sub gui_editor($$$$$)
 	my $save_button = $form->Button(-text => 'Save', -command => $gui_save);
 	$save_button->pack(-fill => 'both');
 	$mw->bind('<KeyRelease-Return>' => $gui_save);
+	$mw->bind('<KeyRelease-Escape>' => sub{ exit });
 
 	MainLoop;
 }
 
-my ($nv_vars, $size) = &xml($nv_xml);
+my ($nv_vars, $size) = &unxml($nv_xml);
 &load($nv_vars, $nv_data, $size, $endian, $alignment);
-if($gui) {
-	&gui_editor($nv_vars, $nv_data, $size, $endian, $alignment);
-} else {
-	&cli_editor($nv_vars);
+
+if(not $noedit) {
+	if($gui) {
+		&gui($nv_vars, $nv_data, $size, $endian, $alignment);
+	} else {
+		&cli($nv_vars);
+	}
+	&save($nv_vars, $nv_data, $size, $endian, $alignment);
 }
-&save($nv_vars, $nv_data, $size, $endian, $alignment);
+
+&xml($nv_vars, $xml_out) if defined $xml_out;
 
 print Dumper($nv_vars) if $verbose;
 
